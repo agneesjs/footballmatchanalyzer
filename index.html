@@ -1,0 +1,356 @@
+import React, { useState } from 'react';
+import { Calculator, TrendingUp, Users, Target, AlertTriangle } from 'lucide-react';
+
+const FootballPredictor = () => {
+  const [homeTeam, setHomeTeam] = useState('');
+  const [awayTeam, setAwayTeam] = useState('');
+  const [homeForm, setHomeForm] = useState([]);
+  const [awayForm, setAwayForm] = useState([]);
+  const [homeGoalsFor, setHomeGoalsFor] = useState('');
+  const [homeGoalsAgainst, setHomeGoalsAgainst] = useState('');
+  const [awayGoalsFor, setAwayGoalsFor] = useState('');
+  const [awayGoalsAgainst, setAwayGoalsAgainst] = useState('');
+  const [h2hResults, setH2hResults] = useState([]);
+  const [prediction, setPrediction] = useState(null);
+
+  const addFormResult = (team, result) => {
+    if (team === 'home') {
+      if (homeForm.length < 5) {
+        setHomeForm([...homeForm, result]);
+      }
+    } else {
+      if (awayForm.length < 5) {
+        setAwayForm([...awayForm, result]);
+      }
+    }
+  };
+
+  const removeFormResult = (team, index) => {
+    if (team === 'home') {
+      setHomeForm(homeForm.filter((_, i) => i !== index));
+    } else {
+      setAwayForm(awayForm.filter((_, i) => i !== index));
+    }
+  };
+
+  const addH2HResult = (result) => {
+    if (h2hResults.length < 5) {
+      setH2hResults([...h2hResults, result]);
+    }
+  };
+
+  const calculateFormPoints = (form) => {
+    return form.reduce((total, result) => {
+      if (result === 'W') return total + 3;
+      if (result === 'D') return total + 1;
+      return total;
+    }, 0);
+  };
+
+  const calculatePrediction = () => {
+    if (!homeTeam || !awayTeam || !homeGoalsFor || !awayGoalsFor) {
+      alert('Wypełnij podstawowe dane drużyn');
+      return;
+    }
+
+    const homeFormPoints = calculateFormPoints(homeForm);
+    const awayFormPoints = calculateFormPoints(awayForm);
+    
+    const homeAttack = parseFloat(homeGoalsFor) / Math.max(homeForm.length, 1);
+    const homeDefense = parseFloat(homeGoalsAgainst) / Math.max(homeForm.length, 1);
+    const awayAttack = parseFloat(awayGoalsFor) / Math.max(awayForm.length, 1);
+    const awayDefense = parseFloat(awayGoalsAgainst) / Math.max(awayForm.length, 1);
+
+    // Obliczenia prawdopodobieństw
+    const homeAdvantage = 0.3; // przewaga gospodarza
+    const formDifference = (homeFormPoints - awayFormPoints) / 15; // normalizacja
+    const attackDefenseBalance = (homeAttack - awayDefense + awayDefense - homeAttack) / 4;
+
+    let homeWinProb = 0.33 + homeAdvantage + formDifference + attackDefenseBalance;
+    let drawProb = 0.27;
+    let awayWinProb = 1 - homeWinProb - drawProb;
+
+    // Normalizacja prawdopodobieństw
+    const total = homeWinProb + drawProb + awayWinProb;
+    homeWinProb = Math.max(0.1, Math.min(0.8, homeWinProb / total));
+    awayWinProb = Math.max(0.1, Math.min(0.8, awayWinProb / total));
+    drawProb = 1 - homeWinProb - awayWinProb;
+
+    // Predykcje dla pierwszej połowy
+    const firstHalfHomeWin = homeWinProb * 0.6; // mniejsze prawdopodobieństwo w 1. połowie
+    const firstHalfDraw = 0.5; // remis jest bardziej prawdopodobny w 1. połowie
+    const firstHalfAwayWin = awayWinProb * 0.6;
+
+    // Normalizacja pierwszej połowy
+    const firstHalfTotal = firstHalfHomeWin + firstHalfDraw + firstHalfAwayWin;
+    
+    const prediction = {
+      fullTime: {
+        homeWin: (homeWinProb * 100).toFixed(1),
+        draw: (drawProb * 100).toFixed(1),
+        awayWin: (awayWinProb * 100).toFixed(1)
+      },
+      firstHalf: {
+        homeWin: ((firstHalfHomeWin / firstHalfTotal) * 100).toFixed(1),
+        draw: ((firstHalfDraw / firstHalfTotal) * 100).toFixed(1),
+        awayWin: ((firstHalfAwayWin / firstHalfTotal) * 100).toFixed(1)
+      },
+      confidence: Math.max(homeFormPoints, awayFormPoints) > 8 ? 'Wysoka' : 'Średnia',
+      recommendation: homeWinProb > 0.5 ? homeTeam : awayWinProb > 0.5 ? awayTeam : 'Remis'
+    };
+
+    setPrediction(prediction);
+  };
+
+  const resetForm = () => {
+    setHomeTeam('');
+    setAwayTeam('');
+    setHomeForm([]);
+    setAwayForm([]);
+    setHomeGoalsFor('');
+    setHomeGoalsAgainst('');
+    setAwayGoalsFor('');
+    setAwayGoalsAgainst('');
+    setH2hResults([]);
+    setPrediction(null);
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto p-6 bg-gradient-to-br from-green-50 to-blue-50 min-h-screen">
+      <div className="bg-white rounded-lg shadow-xl p-8">
+        <div className="text-center mb-8">
+          <h1 className="text-4xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-3">
+            <Target className="text-green-600" />
+            Analizator Meczów Piłkarskich
+          </h1>
+          <div className="bg-red-100 border border-red-300 rounded-lg p-4 mt-4">
+            <div className="flex items-center gap-2 text-red-700">
+              <AlertTriangle size={20} />
+              <span className="font-semibold">Ważne ostrzeżenie:</span>
+            </div>
+            <p className="text-red-600 mt-1 text-sm">
+              To narzędzie służy tylko do analizy. Nie gwarantuje wygranych. Obstawiaj odpowiedzialnie!
+            </p>
+          </div>
+        </div>
+
+        <div className="grid md:grid-cols-2 gap-8">
+          {/* Dane drużyn */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold text-gray-700 flex items-center gap-2">
+              <Users className="text-blue-600" />
+              Dane Drużyn
+            </h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Drużyna Gospodarzy</label>
+                <input
+                  type="text"
+                  value={homeTeam}
+                  onChange={(e) => setHomeTeam(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="np. Manchester United"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Drużyna Gości</label>
+                <input
+                  type="text"
+                  value={awayTeam}
+                  onChange={(e) => setAwayTeam(e.target.value)}
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="np. Liverpool"
+                />
+              </div>
+            </div>
+
+            {/* Statystyki bramkowe */}
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-gray-700 mb-3">Statystyki Bramkowe (ostatnie 5 meczów)</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Gospodarze - bramki zdobyte</label>
+                  <input
+                    type="number"
+                    value={homeGoalsFor}
+                    onChange={(e) => setHomeGoalsFor(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Gospodarze - bramki stracone</label>
+                  <input
+                    type="number"
+                    value={homeGoalsAgainst}
+                    onChange={(e) => setHomeGoalsAgainst(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Goście - bramki zdobyte</label>
+                  <input
+                    type="number"
+                    value={awayGoalsFor}
+                    onChange={(e) => setAwayGoalsFor(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded"
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Goście - bramki stracone</label>
+                  <input
+                    type="number"
+                    value={awayGoalsAgainst}
+                    onChange={(e) => setAwayGoalsAgainst(e.target.value)}
+                    className="w-full p-2 border border-gray-300 rounded"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Forma drużyn */}
+            <div className="space-y-4">
+              <h3 className="font-semibold text-gray-700">Forma Drużyn (ostatnie 5 meczów)</h3>
+              
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-600">{homeTeam || 'Gospodarze'}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => addFormResult('home', 'W')} className="px-3 py-1 bg-green-500 text-white rounded text-sm">W</button>
+                    <button onClick={() => addFormResult('home', 'D')} className="px-3 py-1 bg-yellow-500 text-white rounded text-sm">R</button>
+                    <button onClick={() => addFormResult('home', 'L')} className="px-3 py-1 bg-red-500 text-white rounded text-sm">P</button>
+                  </div>
+                </div>
+                <div className="flex gap-1 mb-2">
+                  {homeForm.map((result, index) => (
+                    <span
+                      key={index}
+                      onClick={() => removeFormResult('home', index)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm cursor-pointer ${
+                        result === 'W' ? 'bg-green-500' : result === 'D' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                    >
+                      {result}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm font-medium text-gray-600">{awayTeam || 'Goście'}</span>
+                  <div className="flex gap-1">
+                    <button onClick={() => addFormResult('away', 'W')} className="px-3 py-1 bg-green-500 text-white rounded text-sm">W</button>
+                    <button onClick={() => addFormResult('away', 'D')} className="px-3 py-1 bg-yellow-500 text-white rounded text-sm">R</button>
+                    <button onClick={() => addFormResult('away', 'L')} className="px-3 py-1 bg-red-500 text-white rounded text-sm">P</button>
+                  </div>
+                </div>
+                <div className="flex gap-1">
+                  {awayForm.map((result, index) => (
+                    <span
+                      key={index}
+                      onClick={() => removeFormResult('away', index)}
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-sm cursor-pointer ${
+                        result === 'W' ? 'bg-green-500' : result === 'D' ? 'bg-yellow-500' : 'bg-red-500'
+                      }`}
+                    >
+                      {result}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Predykcje */}
+          <div className="space-y-6">
+            <h2 className="text-2xl font-semibold text-gray-700 flex items-center gap-2">
+              <TrendingUp className="text-green-600" />
+              Analiza i Predykcje
+            </h2>
+
+            <div className="flex gap-4">
+              <button
+                onClick={calculatePrediction}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 flex items-center justify-center gap-2"
+              >
+                <Calculator size={20} />
+                Analizuj Mecz
+              </button>
+              <button
+                onClick={resetForm}
+                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition duration-200"
+              >
+                Reset
+              </button>
+            </div>
+
+            {prediction && (
+              <div className="bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-lg border border-blue-200">
+                <h3 className="text-xl font-semibold text-gray-800 mb-4">Wyniki Analizy</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-2">Wynik Końcowy</h4>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div className="bg-white p-3 rounded text-center border">
+                        <div className="font-semibold text-green-600">{homeTeam || 'Gospodarze'}</div>
+                        <div className="text-2xl font-bold text-gray-800">{prediction.fullTime.homeWin}%</div>
+                      </div>
+                      <div className="bg-white p-3 rounded text-center border">
+                        <div className="font-semibold text-yellow-600">Remis</div>
+                        <div className="text-2xl font-bold text-gray-800">{prediction.fullTime.draw}%</div>
+                      </div>
+                      <div className="bg-white p-3 rounded text-center border">
+                        <div className="font-semibold text-blue-600">{awayTeam || 'Goście'}</div>
+                        <div className="text-2xl font-bold text-gray-800">{prediction.fullTime.awayWin}%</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="font-semibold text-gray-700 mb-2">Pierwsza Połowa</h4>
+                    <div className="grid grid-cols-3 gap-2 text-sm">
+                      <div className="bg-white p-3 rounded text-center border">
+                        <div className="font-semibold text-green-600">{homeTeam || 'Gospodarze'}</div>
+                        <div className="text-2xl font-bold text-gray-800">{prediction.firstHalf.homeWin}%</div>
+                      </div>
+                      <div className="bg-white p-3 rounded text-center border">
+                        <div className="font-semibold text-yellow-600">Remis</div>
+                        <div className="text-2xl font-bold text-gray-800">{prediction.firstHalf.draw}%</div>
+                      </div>
+                      <div className="bg-white p-3 rounded text-center border">
+                        <div className="font-semibold text-blue-600">{awayTeam || 'Goście'}</div>
+                        <div className="text-2xl font-bold text-gray-800">{prediction.firstHalf.awayWin}%</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white p-4 rounded border">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold">Rekomendacja:</span>
+                      <span className="text-lg font-bold text-blue-600">{prediction.recommendation}</span>
+                    </div>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="font-semibold">Pewność analizy:</span>
+                      <span className={`font-bold ${prediction.confidence === 'Wysoka' ? 'text-green-600' : 'text-yellow-600'}`}>
+                        {prediction.confidence}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default FootballPredictor;
